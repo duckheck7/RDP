@@ -1,0 +1,65 @@
+name: Set Up RDP on Windows
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  rdp-setup:
+    runs-on: windows-latest  # Using Windows runner for RDP
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install RDP Server (Windows built-in)
+      shell: powershell
+      run: |
+        # Enable Remote Desktop (RDP)
+        Write-Host "Enabling Remote Desktop..."
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0
+        # Enable Windows Firewall for RDP
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Write-Host "Remote Desktop enabled successfully!"
+
+    - name: Configure RDP (set password, etc.)
+      shell: powershell
+      run: |
+        # Set the password for the default user (or configure any specific user)
+        $username = "Administrator"
+        $password = "YourSecurePassword"  # Replace with your desired password
+        $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+        Set-LocalUser -Name $username -Password $securePassword
+        Write-Host "Password set for user $username successfully."
+
+    - name: Restart the RDP Service
+      shell: powershell
+      run: |
+        # Restart Remote Desktop Service to apply changes
+        Restart-Service -Name TermService
+        Write-Host "Remote Desktop Service restarted successfully!"
+
+    - name: Test RDP Configuration
+      shell: powershell
+      run: |
+        # Testing to make sure the service is running (This is optional)
+        Get-Service -Name TermService | Select-Object Status
+        Write-Host "Remote Desktop is ready for connections."
+
+    - name: Expose RDP Port
+      shell: powershell
+      run: |
+        # Ensure RDP port (3389) is open in the firewall
+        New-NetFirewallRule -DisplayName "Allow RDP" -Direction Inbound -Protocol TCP -Action Allow -LocalPort 3389
+        Write-Host "RDP port (3389) open for inbound connections."
+
+    - name: Output RDP Details (IP, port)
+      shell: powershell
+      run: |
+        # Output details for RDP connection
+        $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq "Ethernet" }).IPAddress
+        Write-Host "RDP Server IP: $ip"
+        Write-Host "RDP Port: 3389"
+        Write-Host "You can now use RDP to connect to this server."
+
